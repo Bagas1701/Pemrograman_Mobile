@@ -1,10 +1,31 @@
+# ===== Editor / OS =====
 .idea/
 .vscode/
 *.iml
 .DS_Store
-pert*/*
-pert*/.*
-!pert*/lib/
-!pert*/pubspec.yaml
-!pert*/pubspec.lock
-!pert*/analysis_options.yaml
+Thumbs.db
+
+# ===== Flutter: folder platform & build =====
+**/android/
+**/ios/
+**/web/
+**/linux/
+**/macos/
+**/windows/
+**/build/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+
+# ===== Data sensitif (jangan pernah di-commit) =====
+.env
+*.env
+*.jks
+*.keystore
+key.properties
+local.properties
+google-services.json
+GoogleService-Info.plist
