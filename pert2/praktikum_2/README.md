@@ -60,4 +60,5 @@ Gunakan **Hot Restart** jika mengubah data `const` atau fungsi `main()`.
 
 ## Hasil
 > Tambahkan screenshot halaman Daftar Menu dan halaman Detail di sini.
+
 ![Counter](1.png?raw=true)
