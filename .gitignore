@@ -1,0 +1,10 @@
+.idea/
+.vscode/
+*.iml
+.DS_Store
+pert*/*
+pert*/.*
+!pert*/lib/
+!pert*/pubspec.yaml
+!pert*/pubspec.lock
+!pert*/analysis_options.yaml
