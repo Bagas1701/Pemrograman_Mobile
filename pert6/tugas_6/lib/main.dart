@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 // ================= TEMA =================
 final themeMode = ValueNotifier<ThemeMode>(ThemeMode.light);
 final seedColor = ValueNotifier<Color>(Colors.indigo);
+final favorit = ValueNotifier<Set<String>>({});
 
 const pilihanWarna = [
   Colors.indigo,
@@ -11,6 +12,12 @@ const pilihanWarna = [
   Colors.deepOrange,
   Colors.pink,
 ];
+
+void toggleFavorit(String id) {
+  final baru = {...favorit.value};   // salin set lama
+  if (!baru.remove(id)) baru.add(id); // sudah ada → hapus, belum → tambah
+  favorit.value = baru;               // set baru → pendengar diberi tahu
+}
 
 ThemeData buatTema(Color seed, Brightness brightness) {
   return ThemeData(
@@ -32,6 +39,7 @@ Future<void> main() async {
   themeMode.value = gelap ? ThemeMode.dark : ThemeMode.light;
   seedColor.value =
   pilihanWarna[indeksWarna.clamp(0, pilihanWarna.length - 1)];
+  favorit.value = (prefs.getStringList('favorit') ?? []).toSet();
 
   themeMode.addListener(() {
     prefs.setBool('gelap', themeMode.value == ThemeMode.dark);
@@ -41,6 +49,9 @@ Future<void> main() async {
       'warna',
       pilihanWarna.indexWhere((c) => c == seedColor.value),
     );
+  });
+  favorit.addListener(() {
+    prefs.setStringList('favorit', favorit.value.toList());
   });
 
   runApp(const MyApp());
@@ -230,6 +241,13 @@ class _ShellPageState extends State<ShellPage> {
 }
 
 // ================= TAB 1: GALERI =================
+const kisiTempat = SliverGridDelegateWithFixedCrossAxisCount(
+  crossAxisCount: 2,
+  crossAxisSpacing: 12,
+  mainAxisSpacing: 12,
+  childAspectRatio: 0.9,
+);
+
 class GaleriTab extends StatelessWidget {
   const GaleriTab({super.key});
 
@@ -237,12 +255,7 @@ class GaleriTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return GridView.builder(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.9,
-      ),
+      gridDelegate: kisiTempat,
       itemCount: daftarTempat.length,
       itemBuilder: (context, i) => KartuTempat(tempat: daftarTempat[i]),
     );
@@ -251,66 +264,142 @@ class GaleriTab extends StatelessWidget {
 
 class KartuTempat extends StatelessWidget {
   final Tempat tempat;
-  const KartuTempat({super.key, required this.tempat});
+  final bool pakaiHero;
+  const KartuTempat({super.key, required this.tempat, this.pakaiHero = true});
 
   @override
   Widget build(BuildContext context) {
     final tema = Theme.of(context);
 
+    final avatar = CircleAvatar(
+      radius: 36,
+      backgroundColor: tempat.warna,
+      child: Icon(tempat.ikon, size: 36, color: Colors.white),
+    );
+
     return Card(
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          Navigator.pushNamed(context, '/detail', arguments: tempat);
-        },
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Hero(
-                tag: 'tempat-${tempat.id}',
-                child: CircleAvatar(
-                  radius: 36,
-                  backgroundColor: tempat.warna,
-                  child: Icon(tempat.ikon, size: 36, color: Colors.white),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                tempat.nama,
-                style: tema.textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-              Text(tempat.lokasi, style: tema.textTheme.bodySmall),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          InkWell(
+            onTap: () {
+              Navigator.pushNamed(context, '/detail', arguments: tempat);
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.star, size: 16, color: tema.colorScheme.tertiary),
-                  const SizedBox(width: 4),
-                  Text('${tempat.rating}', style: tema.textTheme.labelLarge),
+                  pakaiHero
+                      ? Hero(tag: 'tempat-${tempat.id}', child: avatar)
+                      : avatar,
+                  const SizedBox(height: 12),
+                  Text(
+                    tempat.nama,
+                    style: tema.textTheme.titleMedium,
+                    textAlign: TextAlign.center,
+                  ),
+                  Text(tempat.lokasi, style: tema.textTheme.bodySmall),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.star,
+                          size: 16, color: tema.colorScheme.tertiary),
+                      const SizedBox(width: 4),
+                      Text('${tempat.rating}',
+                          style: tema.textTheme.labelLarge),
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: TombolFavorit(id: tempat.id),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ================= TAB 2: FAVORIT (sementara) =================
+class TombolFavorit extends StatelessWidget {
+  final String id;
+  const TombolFavorit({super.key, required this.id});
+
+  @override
+  Widget build(BuildContext context) {
+    final warna = Theme.of(context).colorScheme;
+
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: favorit,
+      builder: (context, daftar, _) {
+        final suka = daftar.contains(id);
+
+        return IconButton(
+          tooltip: suka ? 'Hapus dari favorit' : 'Tambah ke favorit',
+          onPressed: () => toggleFavorit(id),
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, anim) {
+              return ScaleTransition(scale: anim, child: child);
+            },
+            child: Icon(
+              suka ? Icons.favorite : Icons.favorite_border,
+              key: ValueKey(suka),
+              color: suka ? warna.primary : null,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ================= TAB 2: FAVORIT  =================
 class FavoritTab extends StatelessWidget {
   const FavoritTab({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        'Favorit dikerjakan di Tahap 2',
-        style: Theme.of(context).textTheme.bodyLarge,
-      ),
+    final tema = Theme.of(context);
+
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: favorit,
+      builder: (context, daftar, _) {
+        final tempatFavorit =
+        daftarTempat.where((t) => daftar.contains(t.id)).toList();
+
+        if (tempatFavorit.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.favorite_border,
+                    size: 72, color: tema.colorScheme.outline),
+                const SizedBox(height: 16),
+                Text('Belum ada favorit', style: tema.textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text('Ketuk ikon hati pada sebuah tempat',
+                    style: tema.textTheme.bodyMedium),
+              ],
+            ),
+          );
+        }
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: kisiTempat,
+          itemCount: tempatFavorit.length,
+          itemBuilder: (context, i) {
+            return KartuTempat(tempat: tempatFavorit[i], pakaiHero: false);
+          },
+        );
+      },
     );
   }
 }
@@ -363,17 +452,70 @@ class PengaturanTab extends StatelessWidget {
 }
 
 // ================= DETAIL =================
-class DetailPage extends StatelessWidget {
+class DetailPage extends StatefulWidget {
   final Tempat tempat;
   const DetailPage({super.key, required this.tempat});
 
   @override
+  State<DetailPage> createState() => _DetailPageState();
+}
+
+class _DetailPageState extends State<DetailPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _kontrol;
+  late final Animation<double> _animInfo;
+  late final Animation<double> _animDeskripsi;
+
+  @override
+  void initState() {
+    super.initState();
+    _kontrol = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..forward();
+
+    // Info tampil di 0%–60% waktu, deskripsi di 40%–100% (saling tumpang tindih)
+    _animInfo = CurvedAnimation(
+      parent: _kontrol,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+    _animDeskripsi = CurvedAnimation(
+      parent: _kontrol,
+      curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _kontrol.dispose();
+    super.dispose();
+  }
+
+  // Pembungkus: memudar + naik sedikit
+  Widget _muncul(Animation<double> anim, Widget child) {
+    return FadeTransition(
+      opacity: anim,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.3),
+          end: Offset.zero,
+        ).animate(anim),
+        child: child,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final tempat = widget.tempat;
     final tema = Theme.of(context);
     final warna = tema.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: Text(tempat.nama)),
+      appBar: AppBar(
+        title: Text(tempat.nama),
+        actions: [TombolFavorit(id: tempat.id)],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -387,30 +529,45 @@ class DetailPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            Text(tempat.nama, style: tema.textTheme.headlineMedium),
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.place, size: 18, color: warna.primary),
-                const SizedBox(width: 4),
-                Text(tempat.lokasi, style: tema.textTheme.titleMedium),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.star, size: 18, color: warna.tertiary),
-                const SizedBox(width: 4),
-                Text('${tempat.rating}', style: tema.textTheme.titleMedium),
-              ],
+
+            // ---- Tahap 1 animasi: judul + lokasi + rating ----
+            _muncul(
+              _animInfo,
+              Column(
+                children: [
+                  Text(tempat.nama, style: tema.textTheme.headlineMedium),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.place, size: 18, color: warna.primary),
+                      const SizedBox(width: 4),
+                      Text(tempat.lokasi, style: tema.textTheme.titleMedium),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.star, size: 18, color: warna.tertiary),
+                      const SizedBox(width: 4),
+                      Text('${tempat.rating}',
+                          style: tema.textTheme.titleMedium),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 24),
-            Text(
-              tempat.deskripsi,
-              style: tema.textTheme.bodyLarge,
-              textAlign: TextAlign.center,
+
+            // ---- Tahap 2 animasi: deskripsi ----
+            _muncul(
+              _animDeskripsi,
+              Text(
+                tempat.deskripsi,
+                style: tema.textTheme.bodyLarge,
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),

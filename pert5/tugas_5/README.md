@@ -58,7 +58,7 @@ Jalankan di **emulator/perangkat Android**. sqflite tidak jalan di web, Windows,
 
 | Daftar dan Total | Form Tambah/Ubah |
 |------------------|------------------|
-| ![Daftar](screenshots/daftar.png) | ![Form](screenshots/form.png) |
+| ![Daftar](screenshots/Daftar.png) | ![Form](screenshots/Form_Tambah.png) |
 
 | Validasi Form | Data Bertahan Setelah Restart |
 |---------------|-------------------------------|
